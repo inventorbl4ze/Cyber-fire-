@@ -9,8 +9,44 @@
 *{box-sizing:border-box}
 body{margin:0;overflow:hidden;background:#101b25;color:white;font-family:Arial}
 canvas{display:block}
-#menu{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:linear-gradient(140deg,#061321,#102f3d)}
+#menu{
+ position:absolute;
+ inset:0;
+ z-index:5;
+ display:flex;
+ align-items:center;
+ justify-content:center;
+ overflow-y:auto;
+ padding:12px;
+ background:linear-gradient(140deg,#061321,#102f3d);
+}
 .card{width:90%;max-width:400px;background:#071624;border:1px solid #16dfff;border-radius:18px;padding:25px;text-align:center}
+ @media(orientation:landscape) and (max-height:500px){
+ #menu{
+  align-items:flex-start;
+ }
+ .card{
+  width:90%;
+  max-width:600px;
+  padding:8px 18px;
+  margin:auto;
+ }
+ h1{
+  font-size:27px;
+  margin:5px;
+ }
+ .card p{
+  margin:5px;
+ }
+ input{
+  padding:9px;
+  margin:4px 0;
+ }
+ .main{
+  margin-top:5px;
+  padding:9px;
+ }
+ }
 h1{font-size:45px;color:#15dfff;text-shadow:0 0 20px #00bfff}
 input{width:100%;padding:14px;margin:7px 0;background:#102336;border:1px solid #14cfff;color:white;border-radius:8px}
 button{border:0;border-radius:9px;padding:13px;background:#13cfff;color:#00111b;font-weight:bold}
