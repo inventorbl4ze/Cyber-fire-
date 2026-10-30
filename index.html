@@ -1,0 +1,296 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>CYBER FIRE ONLINE</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#050b17;color:white;font-family:Arial;overflow:hidden}
+button,input{font:inherit}
+#menu{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(#12304b,#030712)}
+.card{width:min(400px,92%);background:#0b192b;border:1px solid #16dfff;border-radius:18px;padding:25px;text-align:center;box-shadow:0 0 30px #00bfff33}
+h1{font-size:43px;color:#16dfff;text-shadow:0 0 18px #00bfff;margin:10px}
+input{width:100%;padding:14px;margin:7px 0;background:#07111f;color:white;border:1px solid #168bb4;border-radius:8px}
+button{padding:13px;border:0;border-radius:8px;background:#09bde7;color:#00111b;font-weight:bold;cursor:pointer}
+.main{width:100%;margin-top:10px}
+.small{background:#20344b;color:white}
+#game{display:none;position:absolute;inset:0}
+canvas{width:100%;height:100%;display:block}
+#hud{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;pointer-events:none;gap:5px}
+.box{background:#07192ddd;border:1px solid #14cfff;padding:9px;border-radius:8px;font-size:12px}
+#controls{position:absolute;bottom:14px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:end}
+#joy{width:105px;height:105px;border:2px solid #20dfff;border-radius:50%;background:#12304a99;touch-action:none;position:relative}
+#stick{width:40px;height:40px;border-radius:50%;background:#12cfff;position:absolute;left:31px;top:31px}
+#fire{width:85px;height:85px;border-radius:50%;background:#ed315c;color:white}
+#exit{pointer-events:auto}
+#status{font-size:12px;color:#8fdfff;margin:10px}
+@media(orientation:portrait){#game:after{content:"ROTATE YOUR PHONE TO LANDSCAPE";position:absolute;inset:0;background:#030712;display:grid;place-items:center;text-align:center;font-size:22px;color:#18dfff;z-index:10}}
+</style>
+</head>
+<body>
+
+<div id="menu">
+ <div class="card">
+  <h1>CYBER FIRE</h1>
+  <p>ONLINE BATTLE ARENA</p>
+  <p style="color:#91aabd;font-size:13px">Enter the battlefield. Fight real players.</p>
+  <input id="name" maxlength="16" placeholder="Your player name">
+  <input id="room" maxlength="12" placeholder="Room code e.g. FIRE01">
+  <button class="main" id="join">JOIN BATTLE</button>
+  <button class="main small" id="create">CREATE NEW ROOM</button>
+  <div id="status">Connecting...</div>
+ </div>
+</div>
+
+<div id="game">
+ <canvas id="canvas"></canvas>
+ <div id="hud">
+  <div class="box">❤️ <span id="hp">100</span><br>☠ <span id="kills">0</span></div>
+  <div class="box">CYBER FIRE<br>ROOM: <span id="roomLabel"></span></div>
+  <div class="box"><span id="count">1</span> PLAYERS<br><button id="exit">EXIT</button></div>
+ </div>
+ <div id="controls">
+  <div id="joy"><div id="stick"></div></div>
+  <button id="fire">FIRE</button>
+ </div>
+</div>
+
+<script>
+const socket=io();
+const $=id=>document.getElementById(id);
+const canvas=$("canvas");
+const ctx=canvas.getContext("2d");
+
+let players={};
+let myId=null;
+let roomCode="";
+let active=false;
+let x=1000,y=600;
+let hp=100,kills=0;
+let joy={x:0,y:0};
+let firing=false;
+let lastShot=0;
+let lastMove=0;
+
+function resize(){
+ canvas.width=innerWidth*devicePixelRatio;
+ canvas.height=innerHeight*devicePixelRatio;
+}
+addEventListener("resize",resize);
+resize();
+
+socket.on("connect",()=>{$("status").textContent="SERVER CONNECTED"});
+socket.on("disconnect",()=>{$("status").textContent="SERVER DISCONNECTED"});
+socket.on("connect_error",()=>{$("status").textContent="Connection failed"});
+
+function enterRoom(code){
+ const name=$("name").value.trim()||"Player";
+ if(!socket.connected){$("status").textContent="Waiting for server...";return}
+ roomCode=code.toUpperCase();
+ socket.emit("joinGame",{name,roomCode});
+}
+
+$("join").onclick=()=>{
+ const code=$("room").value.trim();
+ if(!code)return alert("Enter a room code");
+ enterRoom(code);
+};
+
+$("create").onclick=()=>{
+ const code="CF"+Math.random().toString(36).slice(2,7).toUpperCase();
+ $("room").value=code;
+ enterRoom(code);
+};
+
+socket.on("joined",data=>{
+ myId=data.id;
+ players={};
+ data.players.forEach(p=>players[p.id]=p);
+ const me=players[myId];
+ x=me.x;y=me.y;hp=me.hp;
+ active=true;
+ $("menu").style.display="none";
+ $("game").style.display="block";
+ $("roomLabel").textContent=roomCode;
+ updateCount();
+});
+
+socket.on("playerJoined",p=>{
+ players[p.id]=p;
+ updateCount();
+});
+
+socket.on("playerMoved",p=>{
+ if(players[p.id]){
+ players[p.id].x=p.x;
+ players[p.id].y=p.y;
+ }
+});
+
+socket.on("playerLeft",id=>{
+ delete players[id];
+ updateCount();
+});
+
+socket.on("playerHit",data=>{
+ if(data.target===myId){
+ hp=data.hp;
+ $("hp").textContent=hp;
+ if(!data.alive){
+ alert("You have been eliminated!");
+ leaveGame();
+ }
+ }
+ if(data.attacker===myId){
+ kills=data.kills;
+ $("kills").textContent=kills;
+ }
+ if(players[data.target]){
+ players[data.target].hp=data.hp;
+ players[data.target].alive=data.alive;
+ }
+});
+
+socket.on("gameError",msg=>alert(msg));
+
+function updateCount(){
+ $("count").textContent=Object.keys(players).length;
+}
+
+function leaveGame(){
+ active=false;
+ socket.disconnect();
+ $("game").style.display="none";
+ $("menu").style.display="grid";
+ $("status").textContent="Disconnected";
+}
+
+$("exit").onclick=leaveGame;
+
+const joyEl=$("joy"),stick=$("stick");
+let moving=false;
+
+function moveJoy(e){
+ const r=joyEl.getBoundingClientRect();
+ let dx=e.clientX-(r.left+r.width/2);
+ let dy=e.clientY-(r.top+r.height/2);
+ const d=Math.hypot(dx,dy);
+ if(d>35){dx=dx/d*35;dy=dy/d*35}
+ joy.x=dx/35;joy.y=dy/35;
+ stick.style.transform=`translate(${dx}px,${dy}px)`;
+}
+
+joyEl.onpointerdown=e=>{
+ moving=true;
+ joyEl.setPointerCapture(e.pointerId);
+ moveJoy(e);
+};
+joyEl.onpointermove=e=>{if(moving)moveJoy(e)};
+function stop(){
+ moving=false;joy.x=0;joy.y=0;
+ stick.style.transform="translate(0,0)";
+}
+joyEl.onpointerup=stop;
+joyEl.onpointercancel=stop;
+
+$("fire").onpointerdown=e=>{e.preventDefault();firing=true};
+$("fire").onpointerup=()=>firing=false;
+$("fire").onpointercancel=()=>firing=false;
+$("fire").onpointerleave=()=>firing=false;
+
+function nearestTarget(){
+ let target=null,best=Infinity;
+ for(const id in players){
+  const p=players[id];
+  if(id===myId||p.alive===false)continue;
+  const d=Math.hypot(p.x-x,p.y-y);
+  if(d<best){best=d;target=id}
+ }
+ return best<500?target:null;
+}
+
+function shoot(){
+ const target=nearestTarget();
+ if(!target)return;
+ socket.emit("shoot",{target});
+}
+
+function draw(){
+ if(!active)return;
+ const w=canvas.width,h=canvas.height;
+ const scale=devicePixelRatio;
+ ctx.fillStyle="#071322";
+ ctx.fillRect(0,0,w,h);
+
+ const ox=w/2-x*scale;
+ const oy=h/2-y*scale;
+
+ ctx.strokeStyle="#142e45";
+ ctx.lineWidth=1;
+ for(let gx=0;gx<2200;gx+=50){
+  ctx.beginPath();
+  ctx.moveTo(gx*scale+ox,oy);
+  ctx.lineTo(gx*scale+ox,1200*scale+oy);
+  ctx.stroke();
+ }
+ for(let gy=0;gy<1400;gy+=50){
+  ctx.beginPath();
+  ctx.moveTo(ox,gy*scale+oy);
+  ctx.lineTo(2200*scale+ox,gy*scale+oy);
+  ctx.stroke();
+ }
+
+ for(const id in players){
+  const p=players[id];
+  if(p.alive===false)continue;
+  const px=p.x*scale+ox,py=p.y*scale+oy;
+  ctx.fillStyle=id===myId?"#10dfff":"#ffb52e";
+  ctx.shadowColor=ctx.fillStyle;
+  ctx.shadowBlur=14;
+  ctx.beginPath();
+  ctx.arc(px,py,16*scale,0,Math.PI*2);
+  ctx.fill();
+  ctx.shadowBlur=0;
+  ctx.fillStyle="white";
+  ctx.font=`${12*scale}px Arial`;
+  ctx.textAlign="center";
+  ctx.fillText(p.name,px,py-24*scale);
+  ctx.fillStyle="#ff405b";
+  ctx.fillRect(px-17*scale,py-20*scale,34*scale,4*scale);
+  ctx.fillStyle="#35ed87";
+  ctx.fillRect(px-17*scale,py-20*scale,34*scale*(p.hp/100),4*scale);
+ }
+ requestAnimationFrame(draw);
+}
+
+function loop(){
+ if(active){
+  const now=performance.now();
+  if(joy.x||joy.y){
+   const d=Math.hypot(joy.x,joy.y)||1;
+   x=Math.max(15,Math.min(2185,x+joy.x/d*5));
+   y=Math.max(15,Math.min(1185,y+joy.y/d*5));
+  }
+  if(now-lastMove>50){
+   socket.emit("move",{x,y});
+   if(players[myId]){
+    players[myId].x=x;
+    players[myId].y=y;
+   }
+   lastMove=now;
+  }
+  if(firing&&now-lastShot>300){
+   shoot();
+   lastShot=now;
+  }
+ }
+ requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>
