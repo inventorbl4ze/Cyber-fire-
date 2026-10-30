@@ -1,296 +1,387 @@
 
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>CYBER FIRE ONLINE</title>
-<script src="/socket.io/socket.io.js"></script>
+<title>CYBER FIRE 3D</title>
 <style>
 *{box-sizing:border-box}
-body{margin:0;background:#050b17;color:white;font-family:Arial;overflow:hidden}
-button,input{font:inherit}
-#menu{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(#12304b,#030712)}
-.card{width:min(400px,92%);background:#0b192b;border:1px solid #16dfff;border-radius:18px;padding:25px;text-align:center;box-shadow:0 0 30px #00bfff33}
-h1{font-size:43px;color:#16dfff;text-shadow:0 0 18px #00bfff;margin:10px}
-input{width:100%;padding:14px;margin:7px 0;background:#07111f;color:white;border:1px solid #168bb4;border-radius:8px}
-button{padding:13px;border:0;border-radius:8px;background:#09bde7;color:#00111b;font-weight:bold;cursor:pointer}
+body{margin:0;overflow:hidden;background:#101b25;color:white;font-family:Arial}
+canvas{display:block}
+#menu{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:linear-gradient(140deg,#061321,#102f3d)}
+.card{width:90%;max-width:400px;background:#071624;border:1px solid #16dfff;border-radius:18px;padding:25px;text-align:center}
+h1{font-size:45px;color:#15dfff;text-shadow:0 0 20px #00bfff}
+input{width:100%;padding:14px;margin:7px 0;background:#102336;border:1px solid #14cfff;color:white;border-radius:8px}
+button{border:0;border-radius:9px;padding:13px;background:#13cfff;color:#00111b;font-weight:bold}
 .main{width:100%;margin-top:10px}
-.small{background:#20344b;color:white}
-#game{display:none;position:absolute;inset:0}
-canvas{width:100%;height:100%;display:block}
-#hud{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;pointer-events:none;gap:5px}
-.box{background:#07192ddd;border:1px solid #14cfff;padding:9px;border-radius:8px;font-size:12px}
-#controls{position:absolute;bottom:14px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:end}
-#joy{width:105px;height:105px;border:2px solid #20dfff;border-radius:50%;background:#12304a99;touch-action:none;position:relative}
-#stick{width:40px;height:40px;border-radius:50%;background:#12cfff;position:absolute;left:31px;top:31px}
-#fire{width:85px;height:85px;border-radius:50%;background:#ed315c;color:white}
-#exit{pointer-events:auto}
-#status{font-size:12px;color:#8fdfff;margin:10px}
-@media(orientation:portrait){#game:after{content:"ROTATE YOUR PHONE TO LANDSCAPE";position:absolute;inset:0;background:#030712;display:grid;place-items:center;text-align:center;font-size:22px;color:#18dfff;z-index:10}}
+#hud{display:none;position:absolute;inset:0;pointer-events:none}
+.panel{position:absolute;top:10px;background:#06192ddd;border:1px solid #13dfff;padding:9px;border-radius:8px;font-size:12px}
+#stats{left:10px}
+#room{right:10px}
+#controls{position:absolute;bottom:15px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:end}
+#joy{width:105px;height:105px;border:2px solid #14dfff;border-radius:50%;background:#14344a99;position:relative;pointer-events:auto;touch-action:none}
+#stick{position:absolute;width:40px;height:40px;left:31px;top:31px;border-radius:50%;background:#11cfff}
+.actions{display:flex;gap:10px;align-items:end;pointer-events:auto}
+.actions button{width:65px;height:65px;border-radius:50%;background:#173b54;color:white;border:2px solid #12dfff}
+#fire{width:82px;height:82px;background:#d52e55;border-color:#ff7890}
+#aim{background:#185d7a}
+#exit{position:absolute;top:65px;right:10px;pointer-events:auto}
+@media(orientation:portrait){body:after{content:"ROTATE YOUR PHONE TO LANDSCAPE";position:absolute;inset:0;z-index:20;background:#030a13;display:grid;place-items:center;text-align:center;color:#16dfff;font-size:22px}}
 </style>
 </head>
 <body>
 
 <div id="menu">
- <div class="card">
-  <h1>CYBER FIRE</h1>
-  <p>ONLINE BATTLE ARENA</p>
-  <p style="color:#91aabd;font-size:13px">Enter the battlefield. Fight real players.</p>
-  <input id="name" maxlength="16" placeholder="Your player name">
-  <input id="room" maxlength="12" placeholder="Room code e.g. FIRE01">
-  <button class="main" id="join">JOIN BATTLE</button>
-  <button class="main small" id="create">CREATE NEW ROOM</button>
-  <div id="status">Connecting...</div>
- </div>
+<div class="card">
+<h1>CYBER FIRE</h1>
+<p>3D ONLINE BATTLE ARENA</p>
+<input id="name" placeholder="Soldier name" maxlength="16">
+<input id="code" placeholder="Room code">
+<button class="main" id="join">JOIN BATTLE</button>
+<button class="main" id="create">CREATE ROOM</button>
+<p id="status">Connecting...</p>
+</div>
 </div>
 
-<div id="game">
- <canvas id="canvas"></canvas>
- <div id="hud">
-  <div class="box">❤️ <span id="hp">100</span><br>☠ <span id="kills">0</span></div>
-  <div class="box">CYBER FIRE<br>ROOM: <span id="roomLabel"></span></div>
-  <div class="box"><span id="count">1</span> PLAYERS<br><button id="exit">EXIT</button></div>
- </div>
- <div id="controls">
-  <div id="joy"><div id="stick"></div></div>
-  <button id="fire">FIRE</button>
- </div>
+<div id="hud">
+<div class="panel" id="stats">❤️ 100<br>☠ 0<br>AMMO 30</div>
+<div class="panel" id="room">CYBER FIRE 3D<br>PLAYERS: 1</div>
+<button id="exit">EXIT</button>
+<div id="controls">
+<div id="joy"><div id="stick"></div></div>
+<div class="actions">
+<button id="aim">AIM</button>
+<button id="reload">RELOAD</button>
+<button id="fire">FIRE</button>
+</div>
+</div>
 </div>
 
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script>
 const socket=io();
 const $=id=>document.getElementById(id);
-const canvas=$("canvas");
-const ctx=canvas.getContext("2d");
 
+let scene,camera,renderer;
+let player,weapon;
 let players={};
-let myId=null;
-let roomCode="";
-let active=false;
-let x=1000,y=600;
-let hp=100,kills=0;
-let joy={x:0,y:0};
-let firing=false;
-let lastShot=0;
-let lastMove=0;
+let myId=null,roomCode="";
+let active=false,ammo=30,kills=0;
+let hp=100;
+let move={x:0,y:0};
+let firing=false,aiming=false;
+let worldPosition={x:0,z:0};
+let lastMove=0,lastShot=0;
 
-function resize(){
- canvas.width=innerWidth*devicePixelRatio;
- canvas.height=innerHeight*devicePixelRatio;
+function setup3D(){
+ scene=new THREE.Scene();
+ scene.background=new THREE.Color(0x91b9c8);
+ scene.fog=new THREE.Fog(0x91b9c8,35,110);
+
+ camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,.1,500);
+ renderer=new THREE.WebGLRenderer({antialias:true});
+ renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+ renderer.setSize(innerWidth,innerHeight);
+ renderer.shadowMap.enabled=true;
+ document.body.appendChild(renderer.domElement);
+
+ scene.add(new THREE.HemisphereLight(0xffffff,0x455b38,2));
+ const sun=new THREE.DirectionalLight(0xffffff,2);
+ sun.position.set(25,40,15);
+ sun.castShadow=true;
+ scene.add(sun);
+
+ const ground=new THREE.Mesh(
+  new THREE.PlaneGeometry(200,200),
+  new THREE.MeshStandardMaterial({color:0x426b42})
+ );
+ ground.rotation.x=-Math.PI/2;
+ ground.receiveShadow=true;
+ scene.add(ground);
+
+ const grid=new THREE.GridHelper(200,40,0x527b4a,0x527b4a);
+ grid.position.y=.02;
+ scene.add(grid);
+
+ createMap();
+ createPlayer();
+ animate();
 }
-addEventListener("resize",resize);
-resize();
 
-socket.on("connect",()=>{$("status").textContent="SERVER CONNECTED"});
-socket.on("disconnect",()=>{$("status").textContent="SERVER DISCONNECTED"});
-socket.on("connect_error",()=>{$("status").textContent="Connection failed"});
+function createMap(){
+ const buildingMat=new THREE.MeshStandardMaterial({color:0x687987});
+ const roofMat=new THREE.MeshStandardMaterial({color:0x344453});
+ for(let i=0;i<18;i++){
+  let x=(Math.random()-.5)*130;
+  let z=(Math.random()-.5)*130;
+  if(Math.hypot(x,z)<14)continue;
+  let w=5+Math.random()*7;
+  let h=4+Math.random()*8;
+  let d=5+Math.random()*8;
+  let building=new THREE.Mesh(
+   new THREE.BoxGeometry(w,h,d),buildingMat
+  );
+  building.position.set(x,h/2,z);
+  building.castShadow=true;
+  building.receiveShadow=true;
+  scene.add(building);
 
-function enterRoom(code){
- const name=$("name").value.trim()||"Player";
- if(!socket.connected){$("status").textContent="Waiting for server...";return}
- roomCode=code.toUpperCase();
- socket.emit("joinGame",{name,roomCode});
+  let roof=new THREE.Mesh(
+   new THREE.BoxGeometry(w+.3,.5,d+.3),roofMat
+  );
+  roof.position.set(x,h+.25,z);
+  scene.add(roof);
+ }
+
+ for(let i=0;i<45;i++){
+  let x=(Math.random()-.5)*170;
+  let z=(Math.random()-.5)*170;
+  if(Math.hypot(x,z)<12)continue;
+  const trunk=new THREE.Mesh(
+   new THREE.CylinderGeometry(.2,.35,2,7),
+   new THREE.MeshStandardMaterial({color:0x65432b})
+  );
+  trunk.position.set(x,1,z);
+  scene.add(trunk);
+  const leaves=new THREE.Mesh(
+   new THREE.ConeGeometry(2.2,5,8),
+   new THREE.MeshStandardMaterial({color:0x17643c})
+  );
+  leaves.position.set(x,4,z);
+  scene.add(leaves);
+ }
+}
+
+function createCharacter(color){
+ const group=new THREE.Group();
+ const uniform=new THREE.MeshStandardMaterial({color});
+ const skin=new THREE.MeshStandardMaterial({color:0xd9a477});
+ const body=new THREE.Mesh(new THREE.BoxGeometry(.8,1.1,.45),uniform);
+ body.position.y=1.35;
+ group.add(body);
+ const head=new THREE.Mesh(new THREE.SphereGeometry(.28,12,12),skin);
+ head.position.y=2.12;
+ group.add(head);
+ const legs=[];
+ for(let side of [-1,1]){
+  const leg=new THREE.Mesh(new THREE.BoxGeometry(.3,.8,.35),uniform);
+  leg.position.set(side*.22,.45,0);
+  group.add(leg);
+  legs.push(leg);
+  const arm=new THREE.Mesh(new THREE.BoxGeometry(.23,.85,.25),uniform);
+  arm.position.set(side*.52,1.4,0);
+  group.add(arm);
+ }
+ const gun=new THREE.Mesh(
+  new THREE.BoxGeometry(.15,.18,1),
+  new THREE.MeshStandardMaterial({color:0x18222a,metalness:.8})
+ );
+ gun.position.set(.45,1.45,-.6);
+ group.add(gun);
+ group.userData.legs=legs;
+ return group;
+}
+
+function createPlayer(){
+ player=createCharacter(0x13b9d9);
+ scene.add(player);
+ player.position.set(0,0,0);
+ camera.position.set(0,4,8);
+}
+
+function addRemote(p){
+ if(players[p.id]){
+  players[p.id].position.set(p.x/20,0,p.y/20);
+  return;
+ }
+ let character=createCharacter(0xffa32b);
+ character.position.set(p.x/20,0,p.y/20);
+ scene.add(character);
+ players[p.id]=character;
+}
+
+function connectRoom(code){
+ if(!socket.connected){$("status").textContent="Server not connected";return}
+ roomCode=code;
+ socket.emit("joinGame",{
+  name:$("name").value.trim()||"Soldier",
+  roomCode
+ });
 }
 
 $("join").onclick=()=>{
- const code=$("room").value.trim();
- if(!code)return alert("Enter a room code");
- enterRoom(code);
+ const code=$("code").value.trim().toUpperCase();
+ if(code)connectRoom(code);
 };
-
 $("create").onclick=()=>{
  const code="CF"+Math.random().toString(36).slice(2,7).toUpperCase();
- $("room").value=code;
- enterRoom(code);
+ $("code").value=code;
+ connectRoom(code);
 };
+
+socket.on("connect",()=>{$("status").textContent="SERVER CONNECTED"});
+socket.on("disconnect",()=>{$("status").textContent="SERVER DISCONNECTED"});
+socket.on("connect_error",()=>{$("status").textContent="CONNECTION ERROR"});
 
 socket.on("joined",data=>{
  myId=data.id;
  players={};
- data.players.forEach(p=>players[p.id]=p);
- const me=players[myId];
- x=me.x;y=me.y;hp=me.hp;
+ for(const p of data.players)addRemote(p);
  active=true;
  $("menu").style.display="none";
- $("game").style.display="block";
- $("roomLabel").textContent=roomCode;
- updateCount();
+ $("hud").style.display="block";
+ $("room").innerHTML="CYBER FIRE 3D<br>ROOM: "+roomCode+"<br>PLAYERS: "+data.players.length;
 });
 
 socket.on("playerJoined",p=>{
- players[p.id]=p;
+ addRemote(p);
  updateCount();
 });
 
 socket.on("playerMoved",p=>{
  if(players[p.id]){
- players[p.id].x=p.x;
- players[p.id].y=p.y;
+  players[p.id].position.set(p.x/20,0,p.y/20);
  }
 });
 
 socket.on("playerLeft",id=>{
- delete players[id];
+ if(players[id]){
+  scene.remove(players[id]);
+  delete players[id];
+ }
  updateCount();
 });
 
+function updateCount(){
+ $("room").innerHTML="CYBER FIRE 3D<br>ROOM: "+roomCode+"<br>PLAYERS: "+(Object.keys(players).length+1);
+}
+
 socket.on("playerHit",data=>{
  if(data.target===myId){
- hp=data.hp;
- $("hp").textContent=hp;
- if(!data.alive){
- alert("You have been eliminated!");
- leaveGame();
- }
+  hp=data.hp;
+  $("stats").innerHTML="❤️ "+hp+"<br>☠ "+kills+"<br>AMMO "+ammo;
+  if(!data.alive){alert("ELIMINATED!");location.reload()}
  }
  if(data.attacker===myId){
- kills=data.kills;
- $("kills").textContent=kills;
- }
- if(players[data.target]){
- players[data.target].hp=data.hp;
- players[data.target].alive=data.alive;
+  kills=data.kills;
+  updateStats();
  }
 });
 
-socket.on("gameError",msg=>alert(msg));
+socket.on("gameError",alert);
 
-function updateCount(){
- $("count").textContent=Object.keys(players).length;
+function updateStats(){
+ $("stats").innerHTML="❤️ "+hp+"<br>☠ "+kills+"<br>AMMO "+ammo;
 }
 
-function leaveGame(){
- active=false;
- socket.disconnect();
- $("game").style.display="none";
- $("menu").style.display="grid";
- $("status").textContent="Disconnected";
+function shoot(){
+ if(ammo<=0)return;
+ let nearest=null,dist=Infinity;
+ for(const id in players){
+  const p=players[id];
+  let d=player.position.distanceTo(p.position);
+  if(d<dist){dist=d;nearest=id}
+ }
+ if(nearest&&dist<25){
+  socket.emit("shoot",{target:nearest});
+ }
+ ammo--;
+ updateStats();
 }
 
-$("exit").onclick=leaveGame;
+function animate(){
+ requestAnimationFrame(animate);
+ if(!renderer)return;
 
-const joyEl=$("joy"),stick=$("stick");
-let moving=false;
+ if(active){
+  let speed=aiming?.045:.09;
+  worldPosition.x+=move.x*speed;
+  worldPosition.z+=move.y*speed;
+  worldPosition.x=Math.max(-90,Math.min(90,worldPosition.x));
+  worldPosition.z=Math.max(-90,Math.min(90,worldPosition.z));
 
-function moveJoy(e){
- const r=joyEl.getBoundingClientRect();
+  player.position.set(worldPosition.x,0,worldPosition.z);
+  player.rotation.y=Math.atan2(move.x,-move.y);
+
+  if(move.x||move.y){
+   player.userData.legs.forEach((leg,i)=>{
+    leg.rotation.x=Math.sin(performance.now()*.012+i*Math.PI)*.5;
+   });
+  }
+
+  const target=new THREE.Vector3(
+   player.position.x,
+   player.position.y+3.2,
+   player.position.z+7
+  );
+  camera.position.lerp(target,.12);
+  camera.lookAt(player.position.x,1.4,player.position.z);
+
+  if(firing&&performance.now()-lastShot>300){
+   shoot();lastShot=performance.now();
+  }
+
+  if(performance.now()-lastMove>70){
+   socket.emit("move",{
+    x:1000+worldPosition.x*20,
+    y:600+worldPosition.z*20
+   });
+   lastMove=performance.now();
+  }
+ }
+ renderer.render(scene,camera);
+}
+
+const joy=$("joy"),stick=$("stick");
+let touching=false;
+function joyMove(e){
+ let r=joy.getBoundingClientRect();
  let dx=e.clientX-(r.left+r.width/2);
  let dy=e.clientY-(r.top+r.height/2);
- const d=Math.hypot(dx,dy);
+ let d=Math.hypot(dx,dy);
  if(d>35){dx=dx/d*35;dy=dy/d*35}
- joy.x=dx/35;joy.y=dy/35;
+ move.x=dx/35;
+ move.y=dy/35;
  stick.style.transform=`translate(${dx}px,${dy}px)`;
 }
-
-joyEl.onpointerdown=e=>{
- moving=true;
- joyEl.setPointerCapture(e.pointerId);
- moveJoy(e);
+joy.onpointerdown=e=>{
+ touching=true;joy.setPointerCapture(e.pointerId);joyMove(e);
 };
-joyEl.onpointermove=e=>{if(moving)moveJoy(e)};
-function stop(){
- moving=false;joy.x=0;joy.y=0;
+joy.onpointermove=e=>{if(touching)joyMove(e)};
+function stopJoy(){
+ touching=false;move.x=0;move.y=0;
  stick.style.transform="translate(0,0)";
 }
-joyEl.onpointerup=stop;
-joyEl.onpointercancel=stop;
+joy.onpointerup=stopJoy;
+joy.onpointercancel=stopJoy;
 
 $("fire").onpointerdown=e=>{e.preventDefault();firing=true};
 $("fire").onpointerup=()=>firing=false;
 $("fire").onpointercancel=()=>firing=false;
 $("fire").onpointerleave=()=>firing=false;
 
-function nearestTarget(){
- let target=null,best=Infinity;
- for(const id in players){
-  const p=players[id];
-  if(id===myId||p.alive===false)continue;
-  const d=Math.hypot(p.x-x,p.y-y);
-  if(d<best){best=d;target=id}
+$("aim").onclick=()=>{
+ aiming=!aiming;
+ camera.fov=aiming?45:70;
+ camera.updateProjectionMatrix();
+ $("aim").style.background=aiming?"#0b9974":"#185d7a";
+};
+$("reload").onclick=()=>{
+ ammo=30;updateStats();
+};
+$("exit").onclick=()=>location.reload();
+
+addEventListener("resize",()=>{
+ if(camera&&renderer){
+ camera.aspect=innerWidth/innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
  }
- return best<500?target:null;
-}
+});
 
-function shoot(){
- const target=nearestTarget();
- if(!target)return;
- socket.emit("shoot",{target});
-}
-
-function draw(){
- if(!active)return;
- const w=canvas.width,h=canvas.height;
- const scale=devicePixelRatio;
- ctx.fillStyle="#071322";
- ctx.fillRect(0,0,w,h);
-
- const ox=w/2-x*scale;
- const oy=h/2-y*scale;
-
- ctx.strokeStyle="#142e45";
- ctx.lineWidth=1;
- for(let gx=0;gx<2200;gx+=50){
-  ctx.beginPath();
-  ctx.moveTo(gx*scale+ox,oy);
-  ctx.lineTo(gx*scale+ox,1200*scale+oy);
-  ctx.stroke();
- }
- for(let gy=0;gy<1400;gy+=50){
-  ctx.beginPath();
-  ctx.moveTo(ox,gy*scale+oy);
-  ctx.lineTo(2200*scale+ox,gy*scale+oy);
-  ctx.stroke();
- }
-
- for(const id in players){
-  const p=players[id];
-  if(p.alive===false)continue;
-  const px=p.x*scale+ox,py=p.y*scale+oy;
-  ctx.fillStyle=id===myId?"#10dfff":"#ffb52e";
-  ctx.shadowColor=ctx.fillStyle;
-  ctx.shadowBlur=14;
-  ctx.beginPath();
-  ctx.arc(px,py,16*scale,0,Math.PI*2);
-  ctx.fill();
-  ctx.shadowBlur=0;
-  ctx.fillStyle="white";
-  ctx.font=`${12*scale}px Arial`;
-  ctx.textAlign="center";
-  ctx.fillText(p.name,px,py-24*scale);
-  ctx.fillStyle="#ff405b";
-  ctx.fillRect(px-17*scale,py-20*scale,34*scale,4*scale);
-  ctx.fillStyle="#35ed87";
-  ctx.fillRect(px-17*scale,py-20*scale,34*scale*(p.hp/100),4*scale);
- }
- requestAnimationFrame(draw);
-}
-
-function loop(){
- if(active){
-  const now=performance.now();
-  if(joy.x||joy.y){
-   const d=Math.hypot(joy.x,joy.y)||1;
-   x=Math.max(15,Math.min(2185,x+joy.x/d*5));
-   y=Math.max(15,Math.min(1185,y+joy.y/d*5));
-  }
-  if(now-lastMove>50){
-   socket.emit("move",{x,y});
-   if(players[myId]){
-    players[myId].x=x;
-    players[myId].y=y;
-   }
-   lastMove=now;
-  }
-  if(firing&&now-lastShot>300){
-   shoot();
-   lastShot=now;
-  }
- }
- requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
-requestAnimationFrame(draw);
+setup3D();
 </script>
 </body>
 </html>
